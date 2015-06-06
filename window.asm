@@ -1,13 +1,14 @@
 
-;NASM TEMPLATE
 ;$ nasm -f win32 -g FILE_NAME.asm
-;$ ld -e _start FILE_NAME.obj -lkernel32 -o EXECUTABLE_NAME.exe
+;$ ld -e _start FILE_NAME.obj -lkernel32 -luser32 -lgdi32  -o EXECUTABLE_NAME.exe
 ;
-
+%include "WindowProcedure.asm";order is important here
+%include "PaintWindow.asm"
 
 
 global _start
- 
+global HWND ;probably unnecessary:using %include directives
+
 
 extern _ExitProcess@4
 extern _CreateWindowExA@48
@@ -15,19 +16,22 @@ extern _GetLastError@0
 extern _SetLastErrorEx@8
 extern _GetModuleHandleA@4
 extern _RegisterClassExA@4
-extern _PostQuitMessage@4
-extern _DefWindowProcA@16
-extern _UpdateWindow@4
-extern _ShowWindow@8
-extern _DestroyWindow@4
+
 extern _GetMessageA@16
 extern _TranslateMessage@4
 extern _DispatchMessageA@4
+extern _BeginPaint@8
+extern _EndPaint@8
+extern _FillRect@12
+extern _GetStockObject@4
+extern _CreateSolidBrush@4
+
 
 
 section .data
         ApplicationName db "test", 0
         ClassName       db "class", 0
+        Text            db "Hello world"
 
 
 section .bss
@@ -36,6 +40,8 @@ section .bss
         WNDCLASSEX resb 48
         MSG resb 28
         HWND resb 4
+        ;PAINT_STRUCT resb 64
+        ;HDC resb 4
  
  
 section .text
@@ -50,7 +56,7 @@ _start:
         mov ecx,WNDCLASSEX
         mov dword[ecx+00],48
         mov dword[ecx+04],3
-        mov dword[ecx+08], WindowProcedure
+        mov dword[ecx+08], mWindowProcedure
         mov dword[ecx+12],0
         mov dword[ecx+16],0
         mov eax,dword[HINSTANCE]
@@ -66,11 +72,6 @@ _start:
 
         cmp eax,0
         je Exit
-
-
-        ;push dword 0
-        ;push dword 0
-        ;call _SetLastErrorEx@8
 
         push dword 0
         push dword [HINSTANCE]
@@ -98,56 +99,7 @@ _start:
 
 
 
-
-
-WindowProcedure: 
-        ;mov eax,0
-        ;mov [eax],dword 5
-        push ebp
-        mov ebp,esp
-        mov eax,dword[ebp+12]
-        cmp eax,2 
-        je Quit
-        cmp eax,1
-        je Create
-        cmp eax,16
-        je Close
-
-        push dword[ebp+20]
-        push dword[ebp+16]
-        push dword[ebp+12]
-        push dword[ebp+8]
-        call _DefWindowProcA@16
-        leave
-        ret 16
-
-
-        Quit:
-        push dword 0
-        call _PostQuitMessage@4
-        mov eax,0
-        leave
-        ret 16
-
-        Create:
-        push dword 5
-        push dword [ebp+8]
-        call _ShowWindow@8        
-        push dword [ebp+8]
-        call _UpdateWindow@4        
-        mov eax,0
-        leave
-        ret 16 
-        
-        Close:
-        push dword [ebp+8]
-        call _DestroyWindow@4
-        mov eax,0
-        leave
-        ret 16 
-
-
-        MSGLoop:
+MSGLoop:
         push dword 0
         push dword 0
         push dword 0
@@ -160,4 +112,3 @@ WindowProcedure:
         push dword MSG
         call _DispatchMessageA@4
         jmp MSGLoop
-
